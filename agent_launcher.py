@@ -6,12 +6,20 @@ import subprocess
 
 from . import api_client
 
+_AGENT_BINARY = "clustta-agent.exe" if platform.system() == "Windows" else "clustta-agent"
 
-def _default_agent_path() -> str:
-    """Return the platform-specific default path for the agent binary."""
+
+def _bundled_agent_path() -> str:
+    """Return the path to the agent binary bundled inside the addon's bin/ directory."""
+    addon_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(addon_dir, "bin", _AGENT_BINARY)
+
+
+def _system_agent_path() -> str:
+    """Return the platform-specific system install path for the agent binary."""
     system = platform.system()
     if system == "Windows":
-        return os.path.join(os.environ.get("LOCALAPPDATA", ""), "Clustta", "clustta-agent.exe")
+        return os.path.join(os.environ.get("LOCALAPPDATA", ""), "Clustta", _AGENT_BINARY)
     elif system == "Darwin":
         return os.path.expanduser("~/Library/Application Support/Clustta/clustta-agent")
     else:
@@ -28,13 +36,21 @@ def is_agent_running() -> bool:
 def launch_agent(agent_path: str | None = None) -> bool:
     """Attempt to start the agent process if it is not already running.
 
+    Looks for the binary in this order: explicit path, bundled bin/, system install.
     Returns True if the agent is running (either already or newly started).
     """
     if is_agent_running():
         return True
 
-    path = agent_path or _default_agent_path()
-    if not os.path.isfile(path):
+    # Resolution order: explicit > bundled > system
+    candidates = [agent_path, _bundled_agent_path(), _system_agent_path()]
+    path = None
+    for candidate in candidates:
+        if candidate and os.path.isfile(candidate):
+            path = candidate
+            break
+
+    if path is None:
         return False
 
     try:

@@ -20,6 +20,10 @@ venv/
 
 # Packaged addon archives
 *.zip
+dist/
+
+# Bundled agent binary (copied during packaging)
+bin/
 
 # Editor settings
 .vscode/
