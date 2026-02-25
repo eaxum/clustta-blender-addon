@@ -51,30 +51,44 @@ class AgentClient:
         """Set the active account."""
         return self._request("POST", "/accounts/switch", {"id": account_id})
 
+    def get_active_account(self) -> tuple[dict | None, str | None]:
+        """Get the currently active account."""
+        return self._request("GET", "/accounts/active")
+
     # Studios
     def list_studios(self) -> tuple[list | None, str | None]:
         """List studios for the active account."""
         return self._request("GET", "/studios")
 
-    def switch_studio(self, studio_id: str) -> tuple[Any, str | None]:
-        """Set the active studio."""
-        return self._request("POST", "/studios/switch", {"id": studio_id})
+    def switch_studio(self, studio_name: str) -> tuple[Any, str | None]:
+        """Set the active studio by name."""
+        return self._request("POST", "/studios/switch", {"name": studio_name})
+
+    def get_active_studio(self) -> tuple[dict | None, str | None]:
+        """Get the currently active studio."""
+        return self._request("GET", "/studios/active")
 
     # Projects
     def list_projects(self) -> tuple[list | None, str | None]:
         """List projects in the active studio."""
         return self._request("GET", "/projects")
 
-    def get_assets(self, project_id: str, ext: str = ".blend", assignee: str = "") -> tuple[list | None, str | None]:
-        """Get assets filtered by extension and assignee."""
-        params = f"?ext={ext}"
-        if assignee:
-            params += f"&assignee={assignee}"
-        return self._request("GET", f"/projects/{project_id}/assets{params}")
+    def switch_project(self, project_uri: str) -> tuple[Any, str | None]:
+        """Set the active project by URI."""
+        return self._request("POST", "/projects/switch", {"uri": project_uri})
 
-    def get_checkpoints(self, project_id: str, asset_id: str) -> tuple[list | None, str | None]:
-        """Get checkpoint history for an asset."""
-        return self._request("GET", f"/projects/{project_id}/assets/{asset_id}/checkpoints")
+    def get_active_project(self) -> tuple[dict | None, str | None]:
+        """Get the currently active project."""
+        return self._request("GET", "/projects/active")
+
+    def get_assets(self, ext: str = ".blend") -> tuple[list | None, str | None]:
+        """Get assets for the active project, filtered by extension."""
+        params = f"?ext={ext}" if ext else ""
+        return self._request("GET", f"/assets{params}")
+
+    def get_checkpoints(self, asset_id: str) -> tuple[list | None, str | None]:
+        """Get checkpoint history for an asset in the active project."""
+        return self._request("GET", f"/assets/{asset_id}/checkpoints")
 
     def create_checkpoint(self, project_id: str, asset_id: str, message: str, file_path: str) -> tuple[Any, str | None]:
         """Create a checkpoint and trigger sync push."""
