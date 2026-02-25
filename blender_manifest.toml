@@ -1,0 +1,14 @@
+schema_version = "1.0.0"
+id = "clustta"
+version = "1.0.0"
+name = "Clustta"
+tagline = "Version control and collaboration for artists"
+maintainer = "Eaxum, Taiwo Folu <taiwofolu@gmail.com>, Fabian Schindler(Cypoe) <fabi.schindler@gmail.com>"
+type = "add-on"
+website = "https://clustta.com"
+blender_version_min = "4.3.0"
+license = ["GPL-3.0-or-later"]
+
+[permissions]
+network = "Communicates with a local Clustta Agent and remote Clustta servers for sync and collaboration"
+files = "Reads and writes project files and .clst databases"
