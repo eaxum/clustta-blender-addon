@@ -4,13 +4,16 @@ import bpy
 from bpy.props import EnumProperty, StringProperty
 from bpy.types import Operator
 
-from . import api_client, helpers
+from . import agent_launcher, api_client, helpers
 
 
 # Dynamic enum caches (Blender requires the list to stay alive)
 _account_items = [("__NONE__", "No accounts loaded", "")]
 _studio_items = [("__NONE__", "No studios loaded", "")]
 _project_items = [("__NONE__", "No projects loaded", "")]
+
+_AGENT_STARTUP_RETRIES = 5
+_AGENT_STARTUP_DELAY = 1.0
 
 
 class CLUSTTA_OT_ConnectAgent(Operator):
@@ -20,13 +23,24 @@ class CLUSTTA_OT_ConnectAgent(Operator):
     bl_label = "Connect to Agent"
 
     def execute(self, context):
-        client = api_client.get_client()
-        ok, err = client.health_check()
-        clustta = context.scene.clustta
+        import time
 
+        clustta = context.scene.clustta
+        client = api_client.get_client()
+
+        # Try launching the agent if it is not already running
+        if not agent_launcher.is_agent_running():
+            launched = agent_launcher.launch_agent()
+            if launched:
+                # Give the agent a moment to start listening
+                for _ in range(_AGENT_STARTUP_RETRIES):
+                    time.sleep(_AGENT_STARTUP_DELAY)
+                    if agent_launcher.is_agent_running():
+                        break
+
+        ok, err = client.health_check()
         if ok:
             clustta.agent_connected = True
-            # Load the active account and studio on connect
             _sync_active_state(clustta, client)
             self.report({"INFO"}, "Connected to Clustta Agent")
         else:
