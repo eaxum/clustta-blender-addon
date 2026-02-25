@@ -4,13 +4,13 @@ import bpy
 from bpy.props import EnumProperty, StringProperty
 from bpy.types import Operator
 
-from . import api_client
+from . import api_client, helpers
 
 
 # Dynamic enum caches (Blender requires the list to stay alive)
-_account_items = []
-_studio_items = []
-_project_items = []
+_account_items = [("__NONE__", "No accounts loaded", "")]
+_studio_items = [("__NONE__", "No studios loaded", "")]
+_project_items = [("__NONE__", "No projects loaded", "")]
 
 
 class CLUSTTA_OT_ConnectAgent(Operator):
@@ -48,23 +48,6 @@ class CLUSTTA_OT_SwitchAccount(Operator):
         items=lambda self, context: _account_items,
     )
 
-    def invoke(self, context, event):
-        client = api_client.get_client()
-        accounts, err = client.list_accounts()
-
-        if err or not accounts:
-            self.report({"WARNING"}, f"Could not load accounts: {err}")
-            return {"CANCELLED"}
-
-        global _account_items
-        _account_items = [
-            (a["id"], f'{a.get("first_name", "")} {a.get("last_name", "")} ({a["email"]})', "")
-            for a in accounts
-        ]
-
-        context.window_manager.invoke_props_dialog(self)
-        return {"RUNNING_MODAL"}
-
     def execute(self, context):
         client = api_client.get_client()
         _, err = client.switch_account(self.account)
@@ -92,23 +75,6 @@ class CLUSTTA_OT_SwitchStudio(Operator):
         items=lambda self, context: _studio_items,
     )
 
-    def invoke(self, context, event):
-        client = api_client.get_client()
-        studios, err = client.list_studios()
-
-        if err or not studios:
-            self.report({"WARNING"}, f"Could not load studios: {err}")
-            return {"CANCELLED"}
-
-        global _studio_items
-        _studio_items = [
-            (s["name"], s["name"], s.get("url", ""))
-            for s in studios
-        ]
-
-        context.window_manager.invoke_props_dialog(self)
-        return {"RUNNING_MODAL"}
-
     def execute(self, context):
         client = api_client.get_client()
         _, err = client.switch_studio(self.studio)
@@ -120,9 +86,14 @@ class CLUSTTA_OT_SwitchStudio(Operator):
         clustta = context.scene.clustta
         clustta.active_studio = self.studio
         clustta.active_studio_id = self.studio
-        # Clear downstream selections
+        # Clear downstream selections and caches
         clustta.active_project = ""
         clustta.active_project_id = ""
+        clustta.assets.clear()
+        clustta.checkpoints.clear()
+        helpers.reset_asset_cache()
+        helpers.reset_checkpoint_cache()
+        _refresh_project_items(client)
         self.report({"INFO"}, f"Switched to studio: {self.studio}")
         return {"FINISHED"}
 
@@ -138,23 +109,6 @@ class CLUSTTA_OT_SwitchProject(Operator):
         description="Select a project",
         items=lambda self, context: _project_items,
     )
-
-    def invoke(self, context, event):
-        client = api_client.get_client()
-        projects, err = client.list_projects()
-
-        if err or not projects:
-            self.report({"WARNING"}, f"Could not load projects: {err}")
-            return {"CANCELLED"}
-
-        global _project_items
-        _project_items = [
-            (p["uri"], p["name"], p.get("working_directory", ""))
-            for p in projects
-        ]
-
-        context.window_manager.invoke_props_dialog(self)
-        return {"RUNNING_MODAL"}
 
     def execute(self, context):
         client = api_client.get_client()
@@ -174,7 +128,13 @@ class CLUSTTA_OT_SwitchProject(Operator):
         clustta = context.scene.clustta
         clustta.active_project = name
         clustta.active_project_id = self.project
-        self.report({"INFO"}, f"Switched to project: {name}")
+
+        # Load assets for the new project
+        helpers.reset_asset_cache()
+        helpers.reset_checkpoint_cache()
+        ok, _ = helpers.load_assets(clustta)
+        count = len(clustta.assets) if ok else 0
+        self.report({"INFO"}, f"Switched to project: {name} ({count} assets)")
         return {"FINISHED"}
 
 
@@ -191,27 +151,34 @@ class CLUSTTA_OT_RefreshAssets(Operator):
             self.report({"WARNING"}, "No project selected")
             return {"CANCELLED"}
 
-        client = api_client.get_client()
-        assets, err = client.get_assets(ext=".blend")
+        helpers.reset_asset_cache()
+        ok, err = helpers.load_assets(clustta)
 
-        if err:
+        if not ok:
             self.report({"WARNING"}, f"Failed to load assets: {err}")
             return {"CANCELLED"}
 
-        # Clear and repopulate the asset collection
-        clustta.assets.clear()
-        clustta.active_asset_index = -1
-
-        for a in (assets or []):
-            item = clustta.assets.add()
-            item.asset_id = a.get("id", "")
-            item.name = a.get("name", "")
-            item.file_path = a.get("file_path", "")
-            item.asset_type = a.get("task_type_name", "")
-            item.status = a.get("status_short_name", "")
-            item.file_state = a.get("file_status", "")
-
         self.report({"INFO"}, f"Loaded {len(clustta.assets)} assets")
+        return {"FINISHED"}
+
+
+class CLUSTTA_OT_RefreshCheckpoints(Operator):
+    """Reload checkpoints for the selected asset."""
+
+    bl_idname = "clustta.refresh_checkpoints"
+    bl_label = "Refresh Checkpoints"
+
+    def execute(self, context):
+        clustta = context.scene.clustta
+
+        if clustta.active_asset_index < 0 or clustta.active_asset_index >= len(clustta.assets):
+            self.report({"WARNING"}, "No asset selected")
+            return {"CANCELLED"}
+
+        asset = clustta.assets[clustta.active_asset_index]
+        helpers.reset_checkpoint_cache()
+        helpers.load_checkpoints(clustta, asset.asset_id)
+        self.report({"INFO"}, f"Loaded {len(clustta.checkpoints)} checkpoints")
         return {"FINISHED"}
 
 
@@ -235,8 +202,45 @@ class CLUSTTA_OT_CreateCheckpoint(Operator):
         return {"FINISHED"}
 
 
+def _refresh_account_items(client):
+    """Populate the account selector items from the agent."""
+    global _account_items
+    accounts, err = client.list_accounts()
+    if not err and accounts:
+        _account_items = [
+            (a["id"], f'{a.get("first_name", "")} {a.get("last_name", "")} ({a["email"]})', "")
+            for a in accounts
+        ]
+
+
+def _refresh_studio_items(client):
+    """Populate the studio selector items from the agent."""
+    global _studio_items
+    studios, err = client.list_studios()
+    if not err and studios:
+        _studio_items = [
+            (s["name"], s["name"], s.get("url", ""))
+            for s in studios
+        ]
+
+
+def _refresh_project_items(client):
+    """Populate the project selector items from the agent."""
+    global _project_items
+    projects, err = client.list_projects()
+    if not err and projects:
+        _project_items = [
+            (p["uri"], p["name"], p.get("working_directory", ""))
+            for p in projects
+        ]
+
+
 def _sync_active_state(clustta, client):
-    """Fetch active account and studio from the agent and update properties."""
+    """Fetch active state from the agent and populate selector caches."""
+    _refresh_account_items(client)
+    _refresh_studio_items(client)
+    _refresh_project_items(client)
+
     active, err = client.get_active_account()
     if not err and active:
         name = f'{active.get("first_name", "")} {active.get("last_name", "")}'.strip()
@@ -261,6 +265,7 @@ _classes = [
     CLUSTTA_OT_SwitchStudio,
     CLUSTTA_OT_SwitchProject,
     CLUSTTA_OT_RefreshAssets,
+    CLUSTTA_OT_RefreshCheckpoints,
     CLUSTTA_OT_CreateCheckpoint,
 ]
 

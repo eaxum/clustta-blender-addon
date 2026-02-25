@@ -3,6 +3,8 @@
 import bpy
 from bpy.types import Context, Panel, UILayout
 
+from . import helpers
+
 
 class CLUSTTA_PT_Main(Panel):
     """Main Clustta panel in the 3D Viewport sidebar."""
@@ -15,10 +17,8 @@ class CLUSTTA_PT_Main(Panel):
 
     def draw(self, context: Context) -> None:
         layout = self.layout
-        scene = context.scene
-        clustta = scene.clustta
+        clustta = context.scene.clustta
 
-        # Agent connection status
         if not clustta.agent_connected:
             row = layout.row()
             row.alert = True
@@ -26,67 +26,33 @@ class CLUSTTA_PT_Main(Panel):
             layout.operator("clustta.connect_agent", icon="FILE_REFRESH")
             return
 
-        # Account section
-        self._draw_account_section(layout, clustta)
+        # Account row
+        row = layout.split(factor=0.3)
+        row.label(text="Account")
+        row.operator_menu_enum("clustta.switch_account", "account", text=clustta.active_account or "Select Account", icon="DOWNARROW_HLT")
 
-        # Studio section
+        # Studio row
         if clustta.active_account:
-            self._draw_studio_section(layout, clustta)
+            row = layout.split(factor=0.3)
+            row.label(text="Studio")
+            row.operator_menu_enum("clustta.switch_studio", "studio", text=clustta.active_studio or "Select Studio", icon="DOWNARROW_HLT")
 
-        # Project section
+        # Project row
         if clustta.active_studio:
-            self._draw_project_section(layout, clustta)
-
-    def _draw_account_section(self, layout: UILayout, clustta) -> None:
-        """Draw the account switcher row."""
-        box = layout.box()
-        row = box.row()
-        row.label(text="Account", icon="USER")
-
-        if clustta.active_account:
-            row.label(text=clustta.active_account)
-        else:
-            row.label(text="No account selected")
-
-        box.operator("clustta.switch_account", icon="DOWNARROW_HLT")
-
-    def _draw_studio_section(self, layout: UILayout, clustta) -> None:
-        """Draw the studio switcher row."""
-        box = layout.box()
-        row = box.row()
-        row.label(text="Studio", icon="COMMUNITY")
-
-        if clustta.active_studio:
-            row.label(text=clustta.active_studio)
-        else:
-            row.label(text="No studio selected")
-
-        box.operator("clustta.switch_studio", icon="DOWNARROW_HLT")
-
-    def _draw_project_section(self, layout: UILayout, clustta) -> None:
-        """Draw the project switcher row."""
-        box = layout.box()
-        row = box.row()
-        row.label(text="Project", icon="FILE_FOLDER")
-
-        if clustta.active_project:
-            row.label(text=clustta.active_project)
-        else:
-            row.label(text="No project selected")
-
-        box.operator("clustta.switch_project", icon="DOWNARROW_HLT")
+            row = layout.split(factor=0.3)
+            row.label(text="Project")
+            row.operator_menu_enum("clustta.switch_project", "project", text=clustta.active_project or "Select Project", icon="DOWNARROW_HLT")
 
 
 class CLUSTTA_PT_Assets(Panel):
     """Asset browser panel, shown when a project is active."""
 
-    bl_label = "Assets"
+    bl_label = "Your Tasks"
     bl_idname = "CLUSTTA_PT_Assets"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Clustta"
     bl_parent_id = "CLUSTTA_PT_Main"
-    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context: Context) -> bool:
@@ -94,17 +60,22 @@ class CLUSTTA_PT_Assets(Panel):
 
     def draw(self, context: Context) -> None:
         layout = self.layout
-        scene = context.scene
+        clustta = context.scene.clustta
 
-        row = layout.row()
+        # Auto-load assets on first expand
+        helpers.ensure_assets_loaded(clustta)
+
+        # Filter dropdowns + reload button
+        row = layout.row(align=True)
+        row.prop(clustta, "filter_asset_type", text="")
+        row.prop(clustta, "filter_status", text="")
         row.operator("clustta.refresh_assets", icon="FILE_REFRESH", text="")
-        row.label(text="Blender Assets")
 
         # Asset list
         layout.template_list(
             "CLUSTTA_UL_Assets", "",
-            scene.clustta, "assets",
-            scene.clustta, "active_asset_index",
+            clustta, "assets",
+            clustta, "active_asset_index",
             rows=6,
         )
 
@@ -118,7 +89,6 @@ class CLUSTTA_PT_Checkpoints(Panel):
     bl_region_type = "UI"
     bl_category = "Clustta"
     bl_parent_id = "CLUSTTA_PT_Main"
-    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context: Context) -> bool:
@@ -127,33 +97,65 @@ class CLUSTTA_PT_Checkpoints(Panel):
 
     def draw(self, context: Context) -> None:
         layout = self.layout
-        scene = context.scene
+        clustta = context.scene.clustta
+
+        # Header row with count and reload button
+        row = layout.row()
+        row.label(text=f"{len(clustta.checkpoints)} checkpoint(s)")
+        row.operator("clustta.refresh_checkpoints", icon="FILE_REFRESH", text="")
 
         # Checkpoint list
         layout.template_list(
             "CLUSTTA_UL_Checkpoints", "",
-            scene.clustta, "checkpoints",
-            scene.clustta, "active_checkpoint_index",
+            clustta, "checkpoints",
+            clustta, "active_checkpoint_index",
             rows=4,
         )
 
         # Create checkpoint
         box = layout.box()
-        box.prop(scene.clustta, "checkpoint_message", text="Message")
+        box.prop(clustta, "checkpoint_message", text="Message")
         box.operator("clustta.create_checkpoint", icon="CHECKMARK")
 
 
 class CLUSTTA_UL_Assets(bpy.types.UIList):
-    """UI list for displaying assets."""
+    """UI list for displaying assets with status and file state."""
 
     bl_idname = "CLUSTTA_UL_Assets"
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index):
         if self.layout_type in {"DEFAULT", "COMPACT"}:
-            layout.label(text=item.name, icon="FILE_BLEND")
+            split = layout.split(factor=0.6)
+            split.label(text=item.name, icon="BLENDER")
+
+            row = split.row(align=True)
+            row.alignment = "RIGHT"
+            if item.status:
+                row.label(text=item.status.upper())
+            state_icon = helpers.get_file_state_icon(item.file_state)
+            row.label(text="", icon=state_icon)
+
         elif self.layout_type == "GRID":
             layout.alignment = "CENTER"
-            layout.label(text="", icon="FILE_BLEND")
+            layout.label(text="", icon="BLENDER")
+
+    def filter_items(self, context, data, propname):
+        """Filter assets by asset type and status dropdowns."""
+        items = getattr(data, propname)
+        flt_flags = [self.bitflag_filter_item] * len(items)
+        flt_neworder = list(range(len(items)))
+
+        clustta = context.scene.clustta
+        type_filter = clustta.filter_asset_type
+        status_filter = clustta.filter_status
+
+        for i, item in enumerate(items):
+            if type_filter != "ALL" and item.asset_type != type_filter:
+                flt_flags[i] = 0
+            if status_filter != "ALL" and item.status != status_filter:
+                flt_flags[i] = 0
+
+        return flt_flags, flt_neworder
 
 
 class CLUSTTA_UL_Checkpoints(bpy.types.UIList):
