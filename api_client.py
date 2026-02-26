@@ -1,24 +1,24 @@
-"""HTTP client for communicating with the Clustta Agent on localhost."""
+"""HTTP client for communicating with the Clustta Bridge on localhost."""
 
 import json
 import urllib.request
 import urllib.error
 from typing import Any
 
-AGENT_HOST = "http://127.0.0.1"
-AGENT_PORT = 1173
+BRIDGE_HOST = "http://127.0.0.1"
+BRIDGE_PORT = 1173
 
 _instance = None
 
 
-class AgentClient:
-    """Simple HTTP client wrapping the Clustta Agent REST API."""
+class BridgeClient:
+    """Simple HTTP client wrapping the Clustta Bridge REST API."""
 
-    def __init__(self, host: str = AGENT_HOST, port: int = AGENT_PORT):
+    def __init__(self, host: str = BRIDGE_HOST, port: int = BRIDGE_PORT):
         self.base_url = f"{host}:{port}"
 
     def _request(self, method: str, path: str, body: dict | None = None) -> tuple[Any, str | None]:
-        """Make an HTTP request to the agent. Returns (data, error)."""
+        """Make an HTTP request to the bridge. Returns (data, error)."""
         url = f"{self.base_url}{path}"
         headers = {"Content-Type": "application/json"}
 
@@ -38,7 +38,7 @@ class AgentClient:
 
     # Health
     def health_check(self) -> tuple[bool, str | None]:
-        """Check if the agent is running."""
+        """Check if the bridge is reachable."""
         data, err = self._request("GET", "/health")
         return err is None, err
 
@@ -98,9 +98,9 @@ class AgentClient:
         })
 
 
-def get_client() -> AgentClient:
-    """Get or create the singleton agent client."""
+def get_client() -> BridgeClient:
+    """Get or create the singleton bridge client."""
     global _instance
     if _instance is None:
-        _instance = AgentClient()
+        _instance = BridgeClient()
     return _instance

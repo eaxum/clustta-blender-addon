@@ -77,8 +77,8 @@ def _on_asset_index_changed(self, context):
 class ClusttaProperties(PropertyGroup):
     """Root property group attached to bpy.types.Scene."""
 
-    # Agent connection
-    agent_connected: BoolProperty(name="Agent Connected", default=False)  # type: ignore[valid-type]
+    # Bridge connection
+    bridge_connected: BoolProperty(name="Bridge Connected", default=False)  # type: ignore[valid-type]
 
     # Active selections (display strings)
     active_account: StringProperty(name="Active Account", default="")  # type: ignore[valid-type]

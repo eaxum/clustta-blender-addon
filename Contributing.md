@@ -50,4 +50,4 @@ You can contribute to the documentation by correcting sentences or adding inform
 Of course, we enjoy receiving code contributions.
 All contributions are welcomed as long as they respect the [C4 contract](https://rfc.zeromq.org/spec:42/C4). You can find tickets waiting for a fix on our GitHub repository and feature requests on our Canny page.
 
-The Clustta Blender Addon is written in Python and targets **Blender 4.3+**. It communicates with the [Clustta Agent](https://github.com/eaxum/clustta-client) over localhost HTTP.
+The Clustta Blender Addon is written in Python and targets **Blender 4.3+**. It communicates with the [Clustta Bridge](https://github.com/eaxum/clustta-client) (embedded in the desktop app) over localhost HTTP.

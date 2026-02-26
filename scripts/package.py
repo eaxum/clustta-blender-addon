@@ -1,12 +1,10 @@
 """Package the Clustta Blender addon into a distributable .zip archive.
 
 Usage:
-    python scripts/package.py                           # addon-only (no agent binary)
-    python scripts/package.py --agent PATH_TO_BINARY    # bundle agent binary
+    python scripts/package.py
 
-The script copies addon source files into a staging directory, optionally
-copies the agent binary into bin/, and creates a .zip ready for Blender
-installation.
+The script copies addon source files into a staging directory and creates
+a .zip ready for Blender installation.
 
 Output: dist/clustta-blender-addon-<version>.zip
 """
@@ -24,7 +22,6 @@ DIST_DIR = os.path.join(ADDON_DIR, "dist")
 # Files and directories to include in the package
 INCLUDE_FILES = [
     "__init__.py",
-    "agent_launcher.py",
     "api_client.py",
     "helpers.py",
     "operators.py",
@@ -60,7 +57,7 @@ def read_version() -> str:
     return manifest.get("version", "0.0.0")
 
 
-def package(agent_binary: str | None = None) -> str:
+def package() -> str:
     """Build the addon .zip archive and return its path."""
     version = read_version()
     archive_name = f"clustta-blender-addon-{version}"
@@ -82,17 +79,6 @@ def package(agent_binary: str | None = None) -> str:
         src = os.path.join(ADDON_DIR, dirname)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(staging_dir, dirname))
-
-    # Bundle agent binary if provided
-    if agent_binary:
-        if not os.path.isfile(agent_binary):
-            print(f"Error: Agent binary not found: {agent_binary}", file=sys.stderr)
-            sys.exit(1)
-        bin_dir = os.path.join(staging_dir, "bin")
-        os.makedirs(bin_dir, exist_ok=True)
-        dest = os.path.join(bin_dir, os.path.basename(agent_binary))
-        shutil.copy2(agent_binary, dest)
-        print(f"  Bundled agent: {agent_binary} -> bin/{os.path.basename(agent_binary)}")
 
     # Create .zip
     zip_path = os.path.join(DIST_DIR, f"{archive_name}.zip")
@@ -117,15 +103,10 @@ def package(agent_binary: str | None = None) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Package the Clustta Blender addon")
-    parser.add_argument(
-        "--agent",
-        metavar="PATH",
-        help="Path to the clustta-agent binary to bundle (e.g. ../clustta-client/bin/clustta-agent.exe)",
-    )
     args = parser.parse_args()
 
     print(f"Packaging Clustta Blender Addon v{read_version()}...")
-    package(agent_binary=args.agent)
+    package()
     print("Done.")
 
 

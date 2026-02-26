@@ -3,10 +3,10 @@
 import importlib
 import sys
 
-from . import api_client, agent_launcher, helpers, operators, panels, props
+from . import api_client, helpers, operators, panels, props
 
 # Module reload support for Blender development
-_modules = [api_client, agent_launcher, helpers, props, operators, panels]
+_modules = [api_client, helpers, props, operators, panels]
 
 def _reload_modules():
     for mod in _modules:

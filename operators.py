@@ -4,7 +4,7 @@ import bpy
 from bpy.props import EnumProperty, StringProperty
 from bpy.types import Operator
 
-from . import agent_launcher, api_client, helpers
+from . import api_client, helpers
 
 
 # Dynamic enum caches (Blender requires the list to stay alive)
@@ -12,40 +12,25 @@ _account_items = [("__NONE__", "No accounts loaded", "")]
 _studio_items = [("__NONE__", "No studios loaded", "")]
 _project_items = [("__NONE__", "No projects loaded", "")]
 
-_AGENT_STARTUP_RETRIES = 5
-_AGENT_STARTUP_DELAY = 1.0
 
+class CLUSTTA_OT_ConnectBridge(Operator):
+    """Connect to the Clustta Bridge running on localhost."""
 
-class CLUSTTA_OT_ConnectAgent(Operator):
-    """Connect to the Clustta Agent running on localhost."""
-
-    bl_idname = "clustta.connect_agent"
-    bl_label = "Connect to Agent"
+    bl_idname = "clustta.connect_bridge"
+    bl_label = "Connect to Bridge"
 
     def execute(self, context):
-        import time
-
         clustta = context.scene.clustta
         client = api_client.get_client()
 
-        # Try launching the agent if it is not already running
-        if not agent_launcher.is_agent_running():
-            launched = agent_launcher.launch_agent()
-            if launched:
-                # Give the agent a moment to start listening
-                for _ in range(_AGENT_STARTUP_RETRIES):
-                    time.sleep(_AGENT_STARTUP_DELAY)
-                    if agent_launcher.is_agent_running():
-                        break
-
         ok, err = client.health_check()
         if ok:
-            clustta.agent_connected = True
+            clustta.bridge_connected = True
             _sync_active_state(clustta, client)
-            self.report({"INFO"}, "Connected to Clustta Agent")
+            self.report({"INFO"}, "Connected to Clustta Bridge")
         else:
-            clustta.agent_connected = False
-            self.report({"WARNING"}, f"Agent unreachable: {err}")
+            clustta.bridge_connected = False
+            self.report({"WARNING"}, f"Bridge unreachable — open the Clustta desktop app: {err}")
 
         return {"FINISHED"}
 
@@ -153,7 +138,7 @@ class CLUSTTA_OT_SwitchProject(Operator):
 
 
 class CLUSTTA_OT_RefreshAssets(Operator):
-    """Refresh the asset list from the agent."""
+    """Refresh the asset list from the bridge."""
 
     bl_idname = "clustta.refresh_assets"
     bl_label = "Refresh Assets"
@@ -210,14 +195,14 @@ class CLUSTTA_OT_CreateCheckpoint(Operator):
             self.report({"WARNING"}, "Please enter a checkpoint message")
             return {"CANCELLED"}
 
-        # Checkpoint creation requires Phase 7 agent endpoints
+        # Checkpoint creation requires Phase 7 bridge endpoints
         self.report({"INFO"}, f"Checkpoint creation not yet implemented: {message}")
         clustta.checkpoint_message = ""
         return {"FINISHED"}
 
 
 def _refresh_account_items(client):
-    """Populate the account selector items from the agent."""
+    """Populate the account selector items from the bridge."""
     global _account_items
     accounts, err = client.list_accounts()
     if not err and accounts:
@@ -228,7 +213,7 @@ def _refresh_account_items(client):
 
 
 def _refresh_studio_items(client):
-    """Populate the studio selector items from the agent."""
+    """Populate the studio selector items from the bridge."""
     global _studio_items
     studios, err = client.list_studios()
     if not err and studios:
@@ -239,7 +224,7 @@ def _refresh_studio_items(client):
 
 
 def _refresh_project_items(client):
-    """Populate the project selector items from the agent."""
+    """Populate the project selector items from the bridge."""
     global _project_items
     projects, err = client.list_projects()
     if not err and projects:
@@ -250,7 +235,7 @@ def _refresh_project_items(client):
 
 
 def _sync_active_state(clustta, client):
-    """Fetch active state from the agent and populate selector caches."""
+    """Fetch active state from the bridge and populate selector caches."""
     _refresh_account_items(client)
     _refresh_studio_items(client)
     _refresh_project_items(client)
@@ -274,7 +259,7 @@ def _sync_active_state(clustta, client):
 
 # Registration
 _classes = [
-    CLUSTTA_OT_ConnectAgent,
+    CLUSTTA_OT_ConnectBridge,
     CLUSTTA_OT_SwitchAccount,
     CLUSTTA_OT_SwitchStudio,
     CLUSTTA_OT_SwitchProject,

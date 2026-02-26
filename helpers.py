@@ -1,4 +1,4 @@
-"""Shared helper functions for loading data from the Clustta Agent."""
+"""Shared helper functions for loading data from the Clustta Bridge."""
 
 from datetime import datetime
 
@@ -30,7 +30,7 @@ def _format_timestamp(iso_str):
 
 
 def load_assets(clustta):
-    """Fetch assets from agent and populate the collection."""
+    """Fetch assets from bridge and populate the collection."""
     global _loaded_assets_project_id
     client = api_client.get_client()
     assets, err = client.get_assets(ext=".blend")

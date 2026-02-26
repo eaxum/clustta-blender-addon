@@ -19,11 +19,11 @@ class CLUSTTA_PT_Main(Panel):
         layout = self.layout
         clustta = context.scene.clustta
 
-        if not clustta.agent_connected:
+        if not clustta.bridge_connected:
             row = layout.row()
             row.alert = True
-            row.label(text="Agent not connected", icon="ERROR")
-            layout.operator("clustta.connect_agent", icon="FILE_REFRESH")
+            row.label(text="Clustta app not connected", icon="ERROR")
+            layout.operator("clustta.connect_bridge", icon="FILE_REFRESH")
             return
 
         # Account row

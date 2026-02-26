@@ -10,12 +10,12 @@ Blender addon for [Clustta](https://clustta.com) - version control, collaboratio
 
 ## About
 
-This addon brings Clustta's version control and collaboration features directly into Blender. It is a thin UI shell that communicates with a local **Clustta Agent** over HTTP - all heavy lifting (file chunking, protobuf serialization, zstd compression, keyring access, SQLite) is handled by the agent. The addon only sends and receives JSON.
+This addon brings Clustta's version control and collaboration features directly into Blender. It is a thin UI shell that communicates with the **Clustta Bridge** (embedded in the desktop app) over HTTP — all heavy lifting (file chunking, protobuf serialization, zstd compression, keyring access, SQLite) is handled by the bridge. The addon only sends and receives JSON.
 
 ## Requirements
 
 - **Blender 4.3+** (uses the new Extensions / `blender_manifest.toml` format)
-- **Clustta Agent** running on localhost (a Go binary shipped with the Clustta desktop app or installed standalone)
+- **Clustta desktop app** running on your machine (the bridge server starts automatically with the app)
 
 ## Installation
 
@@ -32,7 +32,6 @@ The addon will appear as a **"Clustta"** tab in the 3D Viewport sidebar (`N` pan
 - **Asset Viewer** - Browse Blender assets assigned to you, with file state indicators (synced, modified, missing, outdated).
 - **Checkpoint History** - View the version history of any asset.
 - **Create Checkpoints** - Save new versions of your work and push them to the studio server, all from within Blender.
-- **Auto-Launch Agent** - The addon automatically starts the Clustta Agent if it isn't already running.
 
 ## Roadmap
 
@@ -48,7 +47,7 @@ The addon will appear as a **"Clustta"** tab in the 3D Viewport sidebar (`N` pan
 This addon is part of the Clustta ecosystem:
 
 1. **[Clustta Studio](https://github.com/eaxum/clustta-studio)** - Studio/team management server
-2. **[Clustta Client](https://github.com/eaxum/clustta-client)** - Desktop application & agent
+2. **[Clustta Client](https://github.com/eaxum/clustta-client)** - Desktop application (includes the bridge server)
 3. **Clustta Blender Addon** (this repository) - Blender integration
 
 ## Contributing
