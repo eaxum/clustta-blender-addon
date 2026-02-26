@@ -26,13 +26,15 @@ class BridgeClient:
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=3) as resp:
                 content = resp.read().decode("utf-8")
                 return json.loads(content) if content else None, None
-        except urllib.error.URLError as e:
-            return None, str(e.reason)
         except urllib.error.HTTPError as e:
             return None, f"HTTP {e.code}: {e.reason}"
+        except urllib.error.URLError:
+            return None, "Check if Clustta is running"
+        except (TimeoutError, OSError):
+            return None, "Check if Clustta is running"
         except Exception as e:
             return None, str(e)
 

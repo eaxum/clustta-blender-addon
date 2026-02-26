@@ -1,4 +1,4 @@
-"""Clustta operators — actions triggered from UI panels."""
+"""Clustta operators : actions triggered from UI panels."""
 
 import bpy
 from bpy.props import EnumProperty, StringProperty
@@ -30,7 +30,7 @@ class CLUSTTA_OT_ConnectBridge(Operator):
             self.report({"INFO"}, "Connected to Clustta Bridge")
         else:
             clustta.bridge_connected = False
-            self.report({"WARNING"}, f"Bridge unreachable — open the Clustta desktop app: {err}")
+            self.report({"WARNING"}, f"Bridge unreachable : {err}")
 
         return {"FINISHED"}
 
